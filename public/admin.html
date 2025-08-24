@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Graduate Chai Admin Panel</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      background: linear-gradient(135deg, #faf7ef 0%, #f4f1e8 100%);
+      color: #333; 
+      min-height: 100vh;
+    }
+    
+    /* Header */
+    header {
+      background: linear-gradient(135deg, #a5570b 0%, #8a4607 100%);
+      color: #fff;
+      padding: 1.5rem;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 600;
+    }
+    
+    /* Navigation */
+    .nav-tabs {
+      background: #fff;
+      padding: 0;
+      display: flex;
+      border-bottom: 1px solid #ddd;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .nav-tab {
+      background: none;
+      border: none;
+      padding: 1rem 2rem;
+      cursor: pointer;
+      font-size: 1rem;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+    }
+    .nav-tab.active {
+      color: #a5570b;
+      border-bottom-color: #a5570b;
+      background: #faf7ef;
+    }
+    .nav-tab:hover {
+      background: #f9f9f9;
+      color: #a5570b;
+    }
+    
+    /* Layout */
+    .main {
+      padding: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 2rem;
+      margin-bottom: 2rem;
+      border: 1px solid #f0f0f0;
+    }
+    
+    h2 {
+      color: #a5570b;
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    /* Login Form */
+    .login-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 80vh;
+    }
+    
+    .login-form {
+      background: #fff;
+      padding: 3rem;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .login-form h2 {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: #a5570b;
+    }
+    
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      margin-top: 1rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    th, td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    th {
+      background: linear-gradient(135deg, #a5570b 0%, #8a4607 100%);
+      color: white;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    td {
+      background: #fff;
+    }
+    tr:hover td {
+      background: #faf7ef;
+    }
+    
+    /* Forms */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    label {
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    
+    input, select, textarea {
+      padding: 0.8rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.3s ease;
+      background: #fff;
+    }
+    
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #a5570b;
+      box-shadow: 0 0 0 3px rgba(165, 87, 11, 0.1);
+    }
+    
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+    
+    button {
+      background: linear-gradient(135deg, #a5570b 0%, #8a4607 100%);
+      color: #fff;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(165, 87, 11, 0.3);
+    }
+    
+    /* Action buttons */
+    .action-btn {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+      margin: 0.2rem;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-edit {
+      background: #17a2b8;
+      color: white;
+    }
+    .btn-edit:hover {
+      background: #138496;
+    }
+    
+    .btn-delete {
+      background: #dc3545;
+      color: white;
+    }
+    .btn-delete:hover {
+      background: #c82333;
+    }
+    
+    /* Status badges */
+    .status {
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status.active { background: #d4edda; color: #155724; }
+    .status.inactive { background: #f8d7da; color: #721c24; }
+    
+    /* Loading and messages */
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #666;
+    }
+    
+    .message {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .nav-tabs {
+        flex-wrap: wrap;
+      }
+      .nav-tab {
+        flex: 1;
+        min-width: 120px;
+      }
+      .main {
+        padding: 1rem;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="login-container">
+    <div class="login-form">
+      <h2>🫖 Admin Login</h2>
+      <div id="loginMessage"></div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" value="admin@chaiwala.com" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" value="admin123" required />
+        </div>
+        <button type="submit">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminPanel" style="display: none;">
+    <header>
+      <h1>🫖 Graduate Chai Admin Panel</h1>
+      <div style="margin-top: 0.5rem;">
+        <span id="adminName"></span> | 
+        <button onclick="logout()" style="background: none; border: 1px solid #fff; color: #fff; padding: 0.3rem 0.8rem; border-radius: 4px; font-size: 0.8rem;">Logout</button>
+      </div>
+    </header>
+    
+    <nav class="nav-tabs">
+      <button class="nav-tab active" onclick="showTab('products')">Products</button>
+      <button class="nav-tab" onclick="showTab('add-product')">Add Product</button>
+      <button class="nav-tab" onclick="showTab('orders')">Orders</button>
+    </nav>
+    
+    <div class="main">
+      <!-- Products Tab -->
+      <div id="products" class="tab-content active">
+        <div class="card">
+          <h2>🫖 Product Inventory</h2>
+          <div id="productsMessage"></div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Image</th>
+                  <th>Product Name</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Stock</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="productsTableBody">
+                <tr>
+                  <td colspan="7" class="loading">Loading products...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Add Product Tab -->
+      <div id="add-product" class="tab-content">
+        <div class="card">
+          <h2>➕ Add New Product</h2>
+          <div id="addProductMessage"></div>
+          <form id="productForm">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="productName">Product Name *</label>
+                <input type="text" id="productName" name="name" placeholder="e.g., Premium Masala Chai" required />
+              </div>
+              
+              <div class="form-group">
+                <label for="productCategory">Category *</label>
+                <select id="productCategory" name="category" required>
+                  <option value="" disabled selected>Select Category</option>
+                  <option value="Chai Powder">Chai Powder</option>
+                  <option value="Tea Leaves">Tea Leaves</option>
+                  <option value="Masala/Spices">Masala/Spices</option>
+                  <option value="Accessories">Accessories</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label for="productPrice">Price (₹) *</label>
+                <input type="number" id="productPrice" name="price" placeholder="250" required min="1" />
+              </div>
+              
+              <div class="form-group">
+                <label for="productOriginalPrice">Original Price (₹)</label>
+                <input type="number" id="productOriginalPrice" name="original_price" placeholder="300" min="1" />
+              </div>
+              
+              <div class="form-group">
+                <label for="productWeight">Weight/Size</label>
+                <input type="text" id="productWeight" name="weight" placeholder="250g, 500ml, etc." />
+              </div>
+              
+              <div class="form-group">
+                <label for="productStock">Stock Quantity *</label>
+                <input type="number" id="productStock" name="stock_quantity" placeholder="50" required min="0" />
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="productImage">Product Image URL *</label>
+              <input type="url" id="productImage" name="image_url" placeholder="https://example.com/image.jpg" required />
+            </div>
+            
+            <div class="form-group">
+              <label for="productDescription">Product Description *</label>
+              <textarea id="productDescription" name="description" placeholder="Describe your product - ingredients, taste, benefits, etc." required></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label for="productFeatures">Features (comma separated)</label>  
+              <input type="text" id="productFeatures" name="features" placeholder="Natural Jaggery, Premium Quality, Rich Flavor" />
+            </div>
+            
+            <div class="form-group">
+              <label for="productTags">Tags (comma separated)</label>  
+              <input type="text" id="productTags" name="tags" placeholder="Bestseller, Organic" />
+            </div>
+            
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="productPopular" name="is_popular" />
+                Mark as Popular Product
+              </label>
+            </div>
+            
+            <button type="submit">🚀 Add Product to Store</button>
+          </form>
+        </div>
+      </div>
+      
+      <!-- Orders Tab -->
+      <div id="orders" class="tab-content">
+        <div class="card">
+          <h2>📋 Customer Orders</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Mobile</th>
+                  <th>Product</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>#ORD001</strong></td>
+                  <td>Shubham Jagtap</td>
+                  <td>9876543210</td>
+                  <td>Jaggery Tea Powder</td>
+                  <td>₹450</td>
+                  <td><span class="status active">Confirmed</span></td>
+                  <td>2025-08-24</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    let authToken = localStorage.getItem('adminToken');
+    
+    // Check if already logged in
+    if (authToken) {
+      verifyToken();
+    }
+    
+    // Login form handler
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const loginData = Object.fromEntries(formData);
+      
+      try {
+        const response = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(loginData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          localStorage.setItem('adminToken', result.data.token);
+          authToken = result.data.token;
+          showAdminPanel(result.data.admin);
+        } else {
+          showMessage('loginMessage', result.message, 'error');
+        }
+      } catch (error) {
+        showMessage('loginMessage', 'Login failed. Please try again.', 'error');
+      }
+    });
+    
+    // Verify existing token
+    async function verifyToken() {
+      try {
+        const response = await fetch(`${API_BASE}/auth/profile`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          showAdminPanel(result.data);
+        } else {
+          localStorage.removeItem('adminToken');
+          authToken = null;
+        }
+      } catch (error) {
+        localStorage.removeItem('adminToken');
+        authToken = null;
+      }
+    }
+    
+    // Show admin panel
+    function showAdminPanel(admin) {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('adminPanel').style.display = 'block';
+      document.getElementById('adminName').textContent = admin.name;
+      loadProducts();
+    }
+    
+    // Logout
+    function logout() {
+      localStorage.removeItem('adminToken');
+      authToken = null;
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('adminPanel').style.display = 'none';
+    }
+    
+    // Tab switching
+    function showTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(content => 
+        content.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach(tab => 
+        tab.classList.remove('active'));
+      
+      document.getElementById(tabName).classList.add('active');
+      event.target.classList.add('active');
+      
+      if (tabName === 'products') {
+        loadProducts();
+      }
+    }
+    
+    // Load products
+    async function loadProducts() {
+      try {
+        const response = await fetch(`${API_BASE}/products/admin/all`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          displayProducts(result.data);
+        } else {
+          showMessage('productsMessage', 'Failed to load products', 'error');
+        }
+      } catch (error) {
+        showMessage('productsMessage', 'Error loading products', 'error');
+      }
+    }
+    
+    // Display products in table
+    function displayProducts(products) {
+      const tbody = document.getElementById('productsTableBody');
+      
+      if (products.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7">No products found</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = products.map(product => `
+        <tr>
+          <td><img src="${product.image_url}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover;" alt="Product"></td>
+          <td><strong>${product.name}</strong><br><small style="color: #666;">${product.description.substring(0, 50)}...</small></td>
+          <td>${product.category}</td>
+          <td>₹${product.price}</td>
+          <td>${product.stock_quantity}</td>
+          <td><span class="status ${product.is_active ? 'active' : 'inactive'}">${product.is_active ? 'Active' : 'Inactive'}</span></td>
+          <td>
+            <button class="action-btn btn-edit" onclick="editProduct(${product.id})">Edit</button>
+            <button class="action-btn btn-delete" onclick="deleteProduct(${product.id})">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+    
+    // Add product form handler
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const productData = Object.fromEntries(formData);
+      
+      // Convert comma-separated strings to arrays
+      if (productData.features) {
+        productData.features = productData.features.split(',').map(f => f.trim()).filter(f => f);
+      }
+      if (productData.tags) {
+        productData.tags = productData.tags.split(',').map(t => t.trim()).filter(t => t);
+      }
+      
+      // Convert checkbox to boolean
+      productData.is_popular = document.getElementById('productPopular').checked;
+      
+      try {
+        const response = await fetch(`${API_BASE}/products`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify(productData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          showMessage('addProductMessage', 'Product added successfully!', 'success');
+          document.getElementById('productForm').reset();
+          loadProducts();
+        } else {
+          showMessage('addProductMessage', result.message, 'error');
+        }
+      } catch (error) {
+        showMessage('addProductMessage', 'Error adding product', 'error');
+      }
+    });
+    
+    // Delete product
+    async function deleteProduct(id) {
+      if (!confirm('Are you sure you want to delete this product?')) return;
+      
+      try {
+        const response = await fetch(`${API_BASE}/products/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          showMessage('productsMessage', 'Product deleted successfully!', 'success');
+          loadProducts();
+        } else {
+          showMessage('productsMessage', result.message, 'error');
+        }
+      } catch (error) {
+        showMessage('productsMessage', 'Error deleting product', 'error');
+      }
+    }
+    
+    // Show message
+    function showMessage(elementId, message, type) {
+      const element = document.getElementById(elementId);
+      element.innerHTML = `<div class="message ${type}">${message}</div>`;
+      setTimeout(() => element.innerHTML = '', 5000);
+    }
+  </script>
+</body>
+</html>
