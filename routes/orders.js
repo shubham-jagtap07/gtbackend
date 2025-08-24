@@ -77,7 +77,7 @@ router.post('/', async (req, res) => {
 
     const sql = `INSERT INTO orders 
       (order_number, customer_name, customer_phone, items, subtotal, tax_amount, discount_amount, total_amount, status, payment_status, payment_method, order_type, delivery_address, special_instructions, order_date, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, 'delivery', ?, ?, NOW(), NOW(), NOW())`;
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', 'pending', $9, 'delivery', $10, $11, NOW(), NOW(), NOW())`;
 
     const params = [
       orderNumber,
@@ -93,12 +93,7 @@ router.post('/', async (req, res) => {
       special_instructions || null,
     ];
 
-    const conn = await pool.getConnection();
-    try {
-      await conn.execute(sql, params);
-    } finally {
-      conn.release();
-    }
+    await pool.query(sql, params);
 
     return res.json({ success: true, message: 'Order created', data: { order_number: orderNumber } });
   } catch (err) {
@@ -110,16 +105,10 @@ router.post('/', async (req, res) => {
 // GET /api/orders -> list orders (flatten first item for admin table)
 router.get('/', async (req, res) => {
   try {
-    const conn = await pool.getConnection();
-    let rows;
-    try {
-      [rows] = await conn.query(
-        `SELECT id, order_number, customer_name, customer_phone, items, total_amount, payment_method, status, order_date, delivery_address
-         FROM orders ORDER BY order_date DESC, id DESC LIMIT 200`
-      );
-    } finally {
-      conn.release();
-    }
+    const { rows } = await pool.query(
+      `SELECT id, order_number, customer_name, customer_phone, items, total_amount, payment_method, status, order_date, delivery_address
+       FROM orders ORDER BY order_date DESC, id DESC LIMIT 200`
+    );
 
     const data = rows.map((r) => {
       let firstItem = {};
@@ -158,20 +147,14 @@ router.get('/', async (req, res) => {
 // GET /api/orders/summary -> simple totals
 router.get('/summary', async (req, res) => {
   try {
-    const conn = await pool.getConnection();
-    let rows;
-    try {
-      [rows] = await conn.query(
-        `SELECT 
-           COUNT(*) AS total_orders,
-           SUM(total_amount) AS revenue,
-           SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending_orders,
-           SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS delivered_orders
-         FROM orders`
-      );
-    } finally {
-      conn.release();
-    }
+    const { rows } = await pool.query(
+      `SELECT 
+         COUNT(*)::int AS total_orders,
+         COALESCE(SUM(total_amount), 0) AS revenue,
+         SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END)::int AS pending_orders,
+         SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END)::int AS delivered_orders
+       FROM orders`
+    );
 
     const row = rows && rows[0] ? rows[0] : {};
     return res.json({ success: true, data: {

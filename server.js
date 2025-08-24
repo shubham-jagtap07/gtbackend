@@ -53,14 +53,25 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS configuration
+// CORS configuration (allow local, FRONTEND_URL, and *.vercel.app)
+const defaultOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5001',
+  'http://127.0.0.1:5001'
+];
+const envFrontend = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [];
+const allowedOrigins = [...defaultOrigins, ...envFrontend];
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:5001',
-    'http://127.0.0.1:5001'
-  ],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const isAllowed =
+      allowedOrigins.includes(origin) ||
+      /https?:\/\/([a-z0-9-]+)\.vercel\.app$/i.test(origin);
+    if (isAllowed) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -126,15 +137,23 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Initialize database and start server
+// Initialize database and start server with retry
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const startServer = async () => {
   try {
     console.log('🚀 Starting Graduate Chai Admin Backend...');
-    
-    // Test database connection
-    const dbConnected = await testConnection();
-    if (!dbConnected) {
-      console.error('❌ Failed to connect to database. Exiting...');
+
+    const maxAttempts = Number(process.env.DB_BOOT_MAX_ATTEMPTS || 10);
+    const backoffMs = Number(process.env.DB_BOOT_BACKOFF_MS || 5000);
+    let connected = false;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const ok = await testConnection();
+      if (ok) { connected = true; break; }
+      console.error(`⚠️ DB not ready (attempt ${attempt}/${maxAttempts}). Retrying in ${backoffMs}ms...`);
+      await sleep(backoffMs);
+    }
+    if (!connected) {
+      console.error('❌ Failed to connect to database after retries. Exiting...');
       process.exit(1);
     }
 

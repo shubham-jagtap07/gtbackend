@@ -26,8 +26,8 @@ router.post('/login', [
     const { email, password } = req.body;
 
     // Find admin by email
-    const [rows] = await pool.execute(
-      'SELECT * FROM admins WHERE email = ? AND is_active = 1',
+    const { rows } = await pool.query(
+      'SELECT * FROM admins WHERE email = $1 AND is_active = true',
       [email]
     );
 
@@ -53,9 +53,12 @@ router.post('/login', [
     const isValidPassword = password === admin.password;
 
     if (!isValidPassword) {
-      // Increment login attempts
-      await pool.execute(
-        'UPDATE admins SET login_attempts = login_attempts + 1, locked_until = CASE WHEN login_attempts >= 4 THEN DATE_ADD(NOW(), INTERVAL 30 MINUTE) ELSE NULL END WHERE id = ?',
+      // Increment login attempts; lock for 30 minutes after 5th failed attempt
+      await pool.query(
+        `UPDATE admins 
+         SET login_attempts = login_attempts + 1,
+             locked_until = CASE WHEN login_attempts >= 4 THEN (NOW() + interval '30 minutes') ELSE NULL END
+         WHERE id = $1`,
         [admin.id]
       );
 
@@ -66,8 +69,8 @@ router.post('/login', [
     }
 
     // Reset login attempts on successful login
-    await pool.execute(
-      'UPDATE admins SET login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = ?',
+    await pool.query(
+      'UPDATE admins SET login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1',
       [admin.id]
     );
 
@@ -117,8 +120,8 @@ router.post('/login', [
 // Get current admin profile
 router.get('/profile', verifyToken, async (req, res) => {
   try {
-    const [rows] = await pool.execute(
-      'SELECT id, name, email, role, created_at, last_login FROM admins WHERE id = ?',
+    const { rows } = await pool.query(
+      'SELECT id, name, email, role, created_at, last_login FROM admins WHERE id = $1',
       [req.admin.id]
     );
 

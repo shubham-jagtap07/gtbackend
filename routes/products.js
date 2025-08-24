@@ -8,7 +8,7 @@ const router = express.Router();
 // Get all products (public endpoint)
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.execute(`
+    const { rows } = await pool.query(`
       SELECT 
         id,
         name,
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
         created_at,
         updated_at
       FROM products 
-      WHERE is_active = 1 
+      WHERE is_active = true 
       ORDER BY is_popular DESC, created_at DESC
     `);
 
@@ -74,7 +74,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [rows] = await pool.execute(`
+    const { rows } = await pool.query(`
       SELECT 
         id,
         name,
@@ -94,7 +94,7 @@ router.get('/:id', async (req, res) => {
         created_at,
         updated_at
       FROM products 
-      WHERE id = ? AND is_active = 1
+      WHERE id = $1 AND is_active = true
     `, [id]);
 
     if (rows.length === 0) {
@@ -143,7 +143,7 @@ router.get('/:id', async (req, res) => {
 // Get all products for admin (including inactive)
 router.get('/admin/all', verifyToken, async (req, res) => {
   try {
-    const [rows] = await pool.execute(`
+    const { rows } = await pool.query(`
       SELECT 
         id,
         name,
@@ -239,11 +239,12 @@ router.post('/', verifyToken, [
       is_popular
     } = req.body;
 
-    const [result] = await pool.execute(`
+    const result = await pool.query(`
       INSERT INTO products (
         name, description, price, original_price, image_url, weight, 
         category, features, tags, stock_quantity, is_popular
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id
     `, [
       name,
       description,
@@ -255,14 +256,14 @@ router.post('/', verifyToken, [
       JSON.stringify(features || []),
       JSON.stringify(tags || []),
       stock_quantity || 0,
-      is_popular || false
+      Boolean(is_popular)
     ]);
 
     res.status(201).json({
       success: true,
       message: 'Product created successfully',
       data: {
-        id: result.insertId,
+        id: result.rows[0].id,
         name,
         price
       }
@@ -306,8 +307,8 @@ router.put('/:id', verifyToken, [
     const updates = req.body;
 
     // Check if product exists
-    const [existing] = await pool.execute('SELECT id FROM products WHERE id = ?', [id]);
-    if (existing.length === 0) {
+    const existing = await pool.query('SELECT id FROM products WHERE id = $1', [id]);
+    if (existing.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
@@ -321,10 +322,10 @@ router.put('/:id', verifyToken, [
     Object.keys(updates).forEach(key => {
       if (updates[key] !== undefined) {
         if (key === 'features' || key === 'tags') {
-          updateFields.push(`${key} = ?`);
+          updateFields.push(`${key} = $${updateValues.length + 1}`);
           updateValues.push(JSON.stringify(updates[key]));
         } else {
-          updateFields.push(`${key} = ?`);
+          updateFields.push(`${key} = $${updateValues.length + 1}`);
           updateValues.push(updates[key]);
         }
       }
@@ -339,11 +340,12 @@ router.put('/:id', verifyToken, [
 
     updateValues.push(id);
 
-    await pool.execute(`
-      UPDATE products 
-      SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `, updateValues);
+    await pool.query(
+      `UPDATE products 
+       SET ${updateFields.join(', ')}, updated_at = NOW()
+       WHERE id = $${updateValues.length}`,
+      updateValues
+    );
 
     res.json({
       success: true,
@@ -365,8 +367,8 @@ router.delete('/:id', verifyToken, async (req, res) => {
     const { id } = req.params;
 
     // Check if product exists
-    const [existing] = await pool.execute('SELECT id FROM products WHERE id = ?', [id]);
-    if (existing.length === 0) {
+    const existing = await pool.query('SELECT id FROM products WHERE id = $1', [id]);
+    if (existing.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
@@ -374,7 +376,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
     }
 
     // Soft delete by setting is_active to false
-    await pool.execute('UPDATE products SET is_active = 0 WHERE id = ?', [id]);
+    await pool.query('UPDATE products SET is_active = false WHERE id = $1', [id]);
 
     res.json({
       success: true,
