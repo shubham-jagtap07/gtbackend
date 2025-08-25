@@ -1,23 +1,42 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Database configuration (PostgreSQL)
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || 'chai_admin_db',
-  port: Number(process.env.DB_PORT) || 5432,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 60000,
-};
+// Build Database configuration (PostgreSQL)
+let dbConfig;
 
-// Optional SSL (for managed DBs). Enable with DB_SSL=true
-if ((process.env.DB_SSL || '').toString().toLowerCase() === 'true') {
-  dbConfig.ssl = {
-    rejectUnauthorized: ((process.env.DB_SSL_REJECT_UNAUTHORIZED || 'true').toString().toLowerCase() === 'true')
+// Prefer DATABASE_URL if provided (common on Render/Heroku). Fall back to discrete vars.
+if (process.env.DATABASE_URL) {
+  dbConfig = {
+    connectionString: process.env.DATABASE_URL,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 60000,
   };
+  // Default to SSL true for managed DBs unless explicitly disabled
+  const wantSSL = (process.env.DB_SSL || 'true').toString().toLowerCase() === 'true';
+  if (wantSSL) {
+    dbConfig.ssl = {
+      // Many providers use self-signed certs; allow override via env
+      rejectUnauthorized: ((process.env.DB_SSL_REJECT_UNAUTHORIZED || 'false').toString().toLowerCase() === 'true')
+    };
+  }
+} else {
+  dbConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || 'postgres',
+    database: process.env.DB_NAME || 'chai_admin_db',
+    port: Number(process.env.DB_PORT) || 5432,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 60000,
+  };
+  // Optional SSL (for managed DBs). Enable with DB_SSL=true
+  if ((process.env.DB_SSL || '').toString().toLowerCase() === 'true') {
+    dbConfig.ssl = {
+      rejectUnauthorized: ((process.env.DB_SSL_REJECT_UNAUTHORIZED || 'true').toString().toLowerCase() === 'true')
+    };
+  }
 }
 
 // Create connection pool
@@ -32,7 +51,18 @@ const testConnection = async () => {
     console.log('✅ Database connected successfully');
     return true;
   } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
+    // Log effective configuration (sans secrets) to aid diagnostics
+    const effective = {
+      usingDatabaseUrl: !!process.env.DATABASE_URL,
+      host: dbConfig.host || '(from DATABASE_URL)',
+      database: dbConfig.database || '(from DATABASE_URL)',
+      port: dbConfig.port || '(from DATABASE_URL)',
+      ssl: !!dbConfig.ssl,
+      sslRejectUnauthorized: dbConfig.ssl ? dbConfig.ssl.rejectUnauthorized : undefined,
+      nodeEnv: process.env.NODE_ENV,
+    };
+    console.error('❌ Database connection failed:', error?.message || error);
+    console.error('🧪 Effective DB config (safe):', effective);
     return false;
   }
 };
