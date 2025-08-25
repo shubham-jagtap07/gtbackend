@@ -57,7 +57,7 @@ app.use('/api/', limiter);
 const defaultOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-  'http://localhost:5001',
+  'https://gtb-aq8n.onrender.com',
   'http://127.0.0.1:5001'
 ];
 const envFrontend = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [];
