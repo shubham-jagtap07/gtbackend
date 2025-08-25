@@ -12,8 +12,16 @@ if (process.env.DATABASE_URL) {
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 60000,
   };
-  // Default to SSL true for managed DBs unless explicitly disabled
-  const wantSSL = (process.env.DB_SSL || 'true').toString().toLowerCase() === 'true';
+  // Determine SSL behavior
+  // - If DATABASE_URL host is Render internal (".internal"), disable SSL by default
+  // - Otherwise default to SSL true unless explicitly disabled via DB_SSL=false
+  let isInternalHost = false;
+  try {
+    const u = new URL(process.env.DATABASE_URL);
+    isInternalHost = (u.hostname || '').includes('.internal');
+  } catch (_) {}
+
+  const wantSSL = (process.env.DB_SSL || (isInternalHost ? 'false' : 'true')).toString().toLowerCase() === 'true';
   if (wantSSL) {
     dbConfig.ssl = {
       // Many providers use self-signed certs; allow override via env
