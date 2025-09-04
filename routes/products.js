@@ -361,7 +361,7 @@ router.put('/:id', verifyToken, [
   }
 });
 
-// Delete product (soft delete)
+// Delete product (hard delete)
 router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -375,12 +375,12 @@ router.delete('/:id', verifyToken, async (req, res) => {
       });
     }
 
-    // Soft delete by setting is_active to false
-    await pool.query('UPDATE products SET is_active = false WHERE id = $1', [id]);
+    // Hard delete: permanently remove the product
+    await pool.query('DELETE FROM products WHERE id = $1', [id]);
 
     res.json({
       success: true,
-      message: 'Product deleted successfully'
+      message: 'Product permanently deleted successfully'
     });
 
   } catch (error) {
