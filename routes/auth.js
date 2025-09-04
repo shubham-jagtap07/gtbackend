@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const { pool } = require('../config/database');
 const { verifyToken } = require('../middleware/auth');
-
 const router = express.Router();
 
 // Login endpoint
