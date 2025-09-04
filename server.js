@@ -53,7 +53,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS configuration (allow local, FRONTEND_URL, and *.vercel.app)
+// CORS configuration (allow local, FRONTEND_URL, *.vercel.app, and LAN IPs in dev)
 const defaultOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
@@ -61,14 +61,19 @@ const defaultOrigins = [
   'http://127.0.0.1:5001'
 ];
 const envFrontend = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [];
-const allowedOrigins = [...defaultOrigins, ...envFrontend];
+const extraAllowed = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean) : [];
+const allowedOrigins = [...defaultOrigins, ...envFrontend, ...extraAllowed];
+
+const allowAllInDev = process.env.NODE_ENV !== 'production';
+const vercelRegex = /https?:\/\/([a-z0-9-]+)\.vercel\.app$/i;
+// Private LAN IPs (10.x.x.x, 172.16-31.x.x, 192.168.x.x) and localhost with optional port
+const lanRegex = /https?:\/\/(localhost|127\.0\.0\.1|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?::\d+)?$/i;
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    const isAllowed =
-      allowedOrigins.includes(origin) ||
-      /https?:\/\/([a-z0-9-]+)\.vercel\.app$/i.test(origin);
+    if (!origin) return callback(null, true); // allow non-browser clients
+    if (allowAllInDev) return callback(null, true);
+    const isAllowed = allowedOrigins.includes(origin) || vercelRegex.test(origin) || lanRegex.test(origin);
     if (isAllowed) return callback(null, true);
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
