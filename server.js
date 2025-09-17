@@ -33,6 +33,7 @@ const { testConnection, initializeTables } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const orderRoutes = require('./routes/orders');
+const paymentRoutes = require('./routes/payment');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -93,6 +94,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // Redirect admin routes to Next.js frontend
 app.get('/admin*', (req, res) => {

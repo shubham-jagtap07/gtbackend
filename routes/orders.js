@@ -169,4 +169,28 @@ router.get('/summary', async (req, res) => {
   }
 });
 
+// DELETE /api/orders/:orderNumber -> delete specific order
+router.delete('/:orderNumber', async (req, res) => {
+  try {
+    const { orderNumber } = req.params || {};
+    if (!orderNumber) {
+      return res.status(400).json({ success: false, message: 'orderNumber is required' });
+    }
+
+    const { rowCount } = await pool.query(
+      'DELETE FROM orders WHERE order_number = $1',
+      [orderNumber]
+    );
+
+    if (rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    return res.json({ success: true, message: 'Order deleted' });
+  } catch (err) {
+    console.error('Delete order error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 module.exports = router;

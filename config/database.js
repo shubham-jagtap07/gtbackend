@@ -87,67 +87,77 @@ const initializeTables = async () => {
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT,
-        price NUMERIC(10,2) NOT NULL,
-        original_price NUMERIC(10,2),
+        price DECIMAL(10,2) NOT NULL,
+        original_price DECIMAL(10,2),
         image_url VARCHAR(500),
+        is_popular BOOLEAN DEFAULT false,
         weight VARCHAR(50),
-        category VARCHAR(100),
-        features JSONB,
-        rating NUMERIC(3,2) DEFAULT 0,
+        features JSONB DEFAULT '[]',
+        rating DECIMAL(3,2) DEFAULT 0,
         reviews INTEGER DEFAULT 0,
-        tags JSONB,
+        tags JSONB DEFAULT '[]',
+        category VARCHAR(100),
         stock_quantity INTEGER DEFAULT 0,
         is_active BOOLEAN DEFAULT true,
-        is_popular BOOLEAN DEFAULT false,
-        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
-      );
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
     `);
 
-    // Create admins table if not exists
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS admins (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255),
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role VARCHAR(50) DEFAULT 'admin',
-        is_active BOOLEAN DEFAULT true,
-        login_attempts INTEGER DEFAULT 0,
-        locked_until TIMESTAMP WITHOUT TIME ZONE,
-        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-        last_login TIMESTAMP WITHOUT TIME ZONE
-      );
-    `);
-
-    // Create orders table if not exists
-    await client.query(`
+    // Create orders table
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS orders (
         id SERIAL PRIMARY KEY,
-        order_number VARCHAR(50) UNIQUE NOT NULL,
+        order_number VARCHAR(100) UNIQUE NOT NULL,
         customer_name VARCHAR(255) NOT NULL,
-        customer_phone VARCHAR(25) NOT NULL,
+        customer_phone VARCHAR(20) NOT NULL,
         items JSONB NOT NULL,
-        subtotal NUMERIC(10,2) NOT NULL,
-        tax_amount NUMERIC(10,2) DEFAULT 0,
-        discount_amount NUMERIC(10,2) DEFAULT 0,
-        total_amount NUMERIC(10,2) NOT NULL,
+        subtotal DECIMAL(10,2) NOT NULL,
+        tax_amount DECIMAL(10,2) DEFAULT 0,
+        discount_amount DECIMAL(10,2) DEFAULT 0,
+        total_amount DECIMAL(10,2) NOT NULL,
         status VARCHAR(50) DEFAULT 'pending',
         payment_status VARCHAR(50) DEFAULT 'pending',
         payment_method VARCHAR(50) DEFAULT 'cash',
         order_type VARCHAR(50) DEFAULT 'delivery',
         delivery_address JSONB,
         special_instructions TEXT,
-        order_date TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
-      );
+        order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create payment_transactions table for Easebuzz integration
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payment_transactions (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+        transaction_id VARCHAR(255) UNIQUE NOT NULL,
+        gateway_transaction_id VARCHAR(255),
+        amount DECIMAL(10,2) NOT NULL,
+        status VARCHAR(50) DEFAULT 'initiated',
+        payment_gateway VARCHAR(50) DEFAULT 'easebuzz',
+        gateway_response JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create indexes for payment_transactions
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_payment_transactions_txn_id ON payment_transactions(transaction_id)
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_payment_transactions_order_id ON payment_transactions(order_id)
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_payment_transactions_status ON payment_transactions(status)
     `);
 
     // Ensure columns exist (idempotent)
-    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price NUMERIC(10,2)`);
-    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)`);
-    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS weight VARCHAR(50)`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price DECIMAL(10,2)`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)`);
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(100)`);
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS features JSONB`);
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS rating NUMERIC(3,2) DEFAULT 0`);
