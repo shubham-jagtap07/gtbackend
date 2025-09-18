@@ -212,7 +212,9 @@ router.post('/', verifyToken, [
   body('category').optional().trim(),
   body('features').optional().isArray(),
   body('tags').optional().isArray(),
-  body('stock_quantity').optional().isInt({ min: 0 }).withMessage('Stock quantity must be a non-negative integer')
+  body('stock_quantity').optional().isInt({ min: 0 }).withMessage('Stock quantity must be a non-negative integer'),
+  body('rating').optional().isFloat({ min: 0, max: 5 }).withMessage('Rating must be between 0 and 5'),
+  body('reviews').optional().isInt({ min: 0 }).withMessage('Reviews must be a non-negative integer')
 ], async (req, res) => {
   try {
     // Check validation errors
@@ -236,14 +238,16 @@ router.post('/', verifyToken, [
       features,
       tags,
       stock_quantity,
-      is_popular
+      is_popular,
+      rating,
+      reviews
     } = req.body;
 
     const result = await pool.query(`
       INSERT INTO products (
-        name, description, price, original_price, image_url, weight, 
-        category, features, tags, stock_quantity, is_popular
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        name, description, price, original_price, image_url, weight,
+        category, features, tags, stock_quantity, is_popular, rating, reviews
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING id
     `, [
       name,
@@ -256,7 +260,9 @@ router.post('/', verifyToken, [
       JSON.stringify(features || []),
       JSON.stringify(tags || []),
       stock_quantity || 0,
-      Boolean(is_popular)
+      Boolean(is_popular),
+      typeof rating === 'number' ? rating : (rating ? parseFloat(rating) : 0),
+      typeof reviews === 'number' ? reviews : (reviews ? parseInt(reviews) : 0)
     ]);
 
     res.status(201).json({
@@ -291,7 +297,9 @@ router.put('/:id', verifyToken, [
   body('tags').optional().isArray(),
   body('stock_quantity').optional().isInt({ min: 0 }),
   body('is_active').optional().isBoolean(),
-  body('is_popular').optional().isBoolean()
+  body('is_popular').optional().isBoolean(),
+  body('rating').optional().isFloat({ min: 0, max: 5 }),
+  body('reviews').optional().isInt({ min: 0 })
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
