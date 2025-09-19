@@ -182,6 +182,13 @@ const startServer = async () => {
       candidateStatus.forEach(s => console.log(`   ${s}`));
       console.log(`📄 Loaded .env path: ${loadedEnvPath || 'none'}`);
       console.log(`🔐 JWT secret loaded: ${process.env.JWT_SECRET ? 'yes' : 'no'}`);
+      // Helpful runtime config diagnostics
+      console.log('🌐 FRONTEND_URL:', process.env.FRONTEND_URL || '(not set, will fallback to localhost:3000)');
+      console.log('🌐 BACKEND_PUBLIC_URL:', process.env.BACKEND_PUBLIC_URL || '(not set, routes may use host header)');
+      console.log('💳 PAYMENT_ENV:', process.env.PAYMENT_ENV || '(not set)');
+      const easebuzzKeySet = process.env.PAYMENT_ENV === 'production' ? !!process.env.EASEBUZZ_PROD_KEY : !!process.env.EASEBUZZ_TEST_KEY;
+      const easebuzzSaltSet = process.env.PAYMENT_ENV === 'production' ? !!process.env.EASEBUZZ_PROD_SALT : !!process.env.EASEBUZZ_TEST_SALT;
+      console.log(`💳 Easebuzz key set: ${easebuzzKeySet ? 'yes' : 'no'}, salt set: ${easebuzzSaltSet ? 'yes' : 'no'}`);
     });
 
   } catch (error) {

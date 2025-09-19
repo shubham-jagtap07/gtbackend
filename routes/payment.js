@@ -107,7 +107,8 @@ router.post('/initiate', async (req, res) => {
 
     // Prepare payment parameters for Easebuzz
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const backendBase = process.env.BACKEND_PUBLIC_URL || `http://localhost:${process.env.PORT || 5001}`;
+    // Prefer explicit env, else build from request (helps in deployments where env is missing)
+    const backendBase = process.env.BACKEND_PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
     const paymentData = {
       amount: total_amount,
       customerName: (name || 'Customer').replace(/[^a-zA-Z0-9\s]/g, '').trim(),
@@ -194,11 +195,31 @@ router.all('/callback', async (req, res) => {
     
     // Verify hash
     if (!easebuzz.verifyHash(paymentResponse)) {
-      console.error('Hash verification failed:', paymentResponse);
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid payment response' 
-      });
+      // Extra debug info only in non-production
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Hash verification failed. Incoming response fields used for hash:', {
+          status: paymentResponse?.status,
+          key: paymentResponse?.key,
+          txnid: paymentResponse?.txnid,
+          amount: paymentResponse?.amount,
+          productinfo: paymentResponse?.productinfo,
+          firstname: paymentResponse?.firstname,
+          email: paymentResponse?.email,
+          udf1: paymentResponse?.udf1,
+          udf2: paymentResponse?.udf2,
+          udf3: paymentResponse?.udf3,
+          udf4: paymentResponse?.udf4,
+          udf5: paymentResponse?.udf5,
+          udf6: paymentResponse?.udf6,
+          udf7: paymentResponse?.udf7,
+          udf8: paymentResponse?.udf8,
+          udf9: paymentResponse?.udf9,
+          udf10: paymentResponse?.udf10
+        });
+      }
+      const frontendBase = process.env.FRONTEND_URL || req.get('origin') || process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
+      // Redirect to failure page instead of returning JSON, improves UX when callback is opened directly
+      return res.redirect(`${frontendBase}/payment/failure?error=invalid_payment_response`);
     }
 
     const { txnid, status, amount, udf1: orderNumber, easepayid } = paymentResponse;
@@ -235,7 +256,7 @@ router.all('/callback', async (req, res) => {
     ]);
 
     // Redirect based on payment status
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const baseUrl = process.env.FRONTEND_URL || req.get('origin') || process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
     const successUrl = `${baseUrl}/payment/success?order=${encodeURIComponent(orderNumber || '')}&txn=${encodeURIComponent(txnid || '')}`;
     const failureUrl = `${baseUrl}/payment/failure?order=${encodeURIComponent(orderNumber || '')}&txn=${encodeURIComponent(txnid || '')}`;
     if (status === 'success') {
@@ -246,7 +267,7 @@ router.all('/callback', async (req, res) => {
   
   } catch (err) {
     console.error('Payment callback error:', err);
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const baseUrl = process.env.FRONTEND_URL || req.get('origin') || process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
     return res.redirect(`${baseUrl}/payment/failure?error=callback_failed`);
   }
 });

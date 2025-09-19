@@ -47,7 +47,7 @@ router.post('/', [
   body('city').optional().trim(),
   body('subject').optional().trim(),
   body('message').optional().trim(),
-  body('source').optional().isIn(['popup', 'contact']).withMessage('Source must be popup or contact')
+  body('source').optional().isIn(['popup', 'contact', 'franchise']).withMessage('Source must be popup, contact, or franchise')
 ], async (req, res) => {
   try {
     console.log('=== INQUIRY SUBMISSION ===');
