@@ -55,7 +55,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS configuration (allow local, FRONTEND_URL, *.vercel.app, and LAN IPs in dev)
+// CORS configuration (allow local, FRONTEND_URL, BACKEND_PUBLIC_URL, Easebuzz domains, *.vercel.app, and LAN IPs in dev)
 const defaultOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
@@ -63,8 +63,14 @@ const defaultOrigins = [
   'http://127.0.0.1:5001'
 ];
 const envFrontend = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [];
+const envBackendPublic = process.env.BACKEND_PUBLIC_URL ? [process.env.BACKEND_PUBLIC_URL] : [];
+const paymentGatewayOrigins = [
+  'https://testpay.easebuzz.in',
+  'https://pay.easebuzz.in',
+  'https://easebuzz.in'
+];
 const extraAllowed = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean) : [];
-const allowedOrigins = [...defaultOrigins, ...envFrontend, ...extraAllowed];
+const allowedOrigins = [...defaultOrigins, ...envFrontend, ...envBackendPublic, ...paymentGatewayOrigins, ...extraAllowed];
 
 const allowAllInDev = process.env.NODE_ENV !== 'production';
 const vercelRegex = /https?:\/\/([a-z0-9-]+)\.vercel\.app$/i;
