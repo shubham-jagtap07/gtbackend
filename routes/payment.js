@@ -257,8 +257,13 @@ router.all('/callback', async (req, res) => {
 
     // Redirect based on payment status
     const baseUrl = process.env.FRONTEND_URL || req.get('origin') || process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
-    const successUrl = `${baseUrl}/payment/success?order=${encodeURIComponent(orderNumber || '')}&txn=${encodeURIComponent(txnid || '')}`;
-    const failureUrl = `${baseUrl}/payment/failure?order=${encodeURIComponent(orderNumber || '')}&txn=${encodeURIComponent(txnid || '')}`;
+    const defaultSuccess = `${baseUrl}/payment/success`;
+    const defaultFailure = `${baseUrl}/payment/failure`;
+    const successBase = process.env.PAYMENT_SUCCESS_URL || defaultSuccess;
+    const failureBase = process.env.PAYMENT_FAILURE_URL || defaultFailure;
+    const qp = `?order=${encodeURIComponent(orderNumber || '')}&txn=${encodeURIComponent(txnid || '')}`;
+    const successUrl = `${successBase}${successBase.includes('?') ? '&' : '?'}order=${encodeURIComponent(orderNumber || '')}&txn=${encodeURIComponent(txnid || '')}`;
+    const failureUrl = `${failureBase}${failureBase.includes('?') ? '&' : '?'}order=${encodeURIComponent(orderNumber || '')}&txn=${encodeURIComponent(txnid || '')}`;
     if (status === 'success') {
       return res.redirect(successUrl);
     } else {
