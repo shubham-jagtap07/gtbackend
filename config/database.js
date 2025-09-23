@@ -144,6 +144,17 @@ const initializeTables = async () => {
       )
     `);
 
+    // Create shiprocket_tokens table for token management
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS shiprocket_tokens (
+        id SERIAL PRIMARY KEY,
+        token TEXT NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Create indexes for payment_transactions
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_payment_transactions_txn_id ON payment_transactions(transaction_id)
@@ -168,6 +179,13 @@ const initializeTables = async () => {
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS is_popular BOOLEAN DEFAULT false`);
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()`);
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()`);
+
+    // Add Shiprocket tracking columns to orders table
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS shiprocket_order_id BIGINT`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipment_id BIGINT`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS awb_code VARCHAR(100)`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_name VARCHAR(100)`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_status VARCHAR(50)`);
 
     // Insert default products if table is empty
     const countRes = await client.query('SELECT COUNT(*)::int AS count FROM products');
