@@ -10,71 +10,26 @@ class ShiprocketService {
     };
   }
 
+
   /**
-   * Get valid token from database or generate new one
+   * Create order with a fresh token (do NOT save token to DB)
+   * Flow: login -> get token -> create order -> return response
    */
-  async getValidToken() {
+  async createOrderWithFreshToken(orderData) {
     try {
-      // Check if we have a valid token in database
-      const { rows } = await pool.query(
-        'SELECT token, expires_at FROM shiprocket_tokens WHERE expires_at > NOW() ORDER BY created_at DESC LIMIT 1'
+      // 1) Login to Shiprocket to get a fresh token
+      const authResp = await axios.post(
+        `${this.baseURL}/auth/login`,
+        this.credentials,
+        { timeout: 15000 }
       );
 
-      if (rows.length > 0) {
-        console.log('Using existing valid token');
-        return rows[0].token;
+      const token = authResp?.data?.token;
+      if (!token) {
+        throw new Error('Failed to generate Shiprocket token');
       }
 
-      // Generate new token
-      console.log('Generating new Shiprocket token');
-      return await this.generateNewToken();
-    } catch (error) {
-      console.error('Error getting valid token:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Generate new token and store in database
-   */
-  async generateNewToken() {
-    try {
-      const response = await axios.post(`${this.baseURL}/auth/login`, this.credentials);
-      
-      if (!response.data || !response.data.token) {
-        throw new Error('Invalid response from Shiprocket login API');
-      }
-
-      const token = response.data.token;
-      
-      // Token typically expires in 10 days, we'll set it to 9 days to be safe
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 9);
-
-      // Store token in database
-      await pool.query(
-        'INSERT INTO shiprocket_tokens (token, expires_at) VALUES ($1, $2)',
-        [token, expiresAt]
-      );
-
-      // Clean up old tokens
-      await pool.query('DELETE FROM shiprocket_tokens WHERE expires_at <= NOW()');
-
-      console.log('New Shiprocket token generated and stored');
-      return token;
-    } catch (error) {
-      console.error('Error generating new token:', error.response?.data || error.message);
-      throw error;
-    }
-  }
-
-  /**
-   * Create order in Shiprocket
-   */
-  async createOrder(orderData) {
-    try {
-      const token = await this.getValidToken();
-      
+      // 2) Use token immediately to create the order
       const response = await axios.post(
         `${this.baseURL}/orders/create/adhoc`,
         orderData,
@@ -82,7 +37,8 @@ class ShiprocketService {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
-          }
+          },
+          timeout: 20000
         }
       );
 
@@ -92,7 +48,7 @@ class ShiprocketService {
 
       return response.data;
     } catch (error) {
-      console.error('Error creating Shiprocket order:', error.response?.data || error.message);
+      console.error('Error creating Shiprocket order with fresh token:', error.response?.data || error.message);
       throw error;
     }
   }
@@ -234,83 +190,17 @@ class ShiprocketService {
   }
 
   /**
-   * Create shipment for an order
+   * Normal flow helper: ONLY create Shiprocket order.
+   * - Transforms internal order to Shiprocket format
+   * - Generates a fresh token (NOT saved in DB)
+   * - Calls Shiprocket Create Order API
+   * - Does NOT assign AWB, pickup, or create shipment
    */
-//   async createShipmentForOrder(orderId) {
-//     try {
-//       // Get order from database
-//       const { rows } = await pool.query(
-//         'SELECT * FROM orders WHERE id = $1',
-//         [orderId]
-//       );
-
-//       if (rows.length === 0) {
-//         throw new Error('Order not found');
-//       }
-
-//       const order = rows[0];
-
-//       // Check if order already has shipment
-//       if (order.shiprocket_order_id) {
-//         throw new Error('Order already has a shipment created');
-//       }
-
-//       // Transform order data to Shiprocket format
-//       const shiprocketOrderData = this.transformOrderData(order);
-
-//       // Create order in Shiprocket
-//       const shiprocketResponse = await this.createOrder(shiprocketOrderData);
-
-//       // Update order with Shiprocket details
-//       await pool.query(
-//         `UPDATE orders 
-//          SET shiprocket_order_id = $1, shipment_id = $2, tracking_status = $3, updated_at = NOW()
-//          WHERE id = $4`,
-//         [
-//           shiprocketResponse.order_id,
-//           shiprocketResponse.shipment_id,
-//           shiprocketResponse.status,
-//           orderId
-//         ]
-//       );
-
-//       return {
-//         success: true,
-//         data: {
-//           order_id: shiprocketResponse.order_id,
-//           shipment_id: shiprocketResponse.shipment_id,
-//           status: shiprocketResponse.status,
-//           channel_order_id: shiprocketOrderData.order_id
-//         }
-//       };
-//     } catch (error) {
-//       console.error('Error creating shipment for order:', error);
-//       throw error;
-//     }
-//   }
-
-  /**
-   * Get tracking details for a shipment
-   */
-  async getTrackingDetails(shipmentId) {
-    try {
-      const token = await this.getValidToken();
-      
-      const response = await axios.get(
-        `${this.baseURL}/courier/track/shipment/${shipmentId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      return response.data;
-    } catch (error) {
-      console.error('Error getting tracking details:', error.response?.data || error.message);
-      throw error;
-    }
+  async createShiprocketOrderOnly(order) {
+    const payload = this.transformOrderData(order);
+    return await this.createOrderWithFreshToken(payload);
   }
-}
+
+  }
 
 module.exports = new ShiprocketService();
