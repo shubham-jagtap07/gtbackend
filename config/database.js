@@ -155,6 +155,72 @@ const initializeTables = async () => {
       )
     `);
 
+    // Create inquiries table (public submissions)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS inquiries (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255),
+        phone VARCHAR(20) NOT NULL,
+        email VARCHAR(255),
+        city VARCHAR(255),
+        subject VARCHAR(500),
+        message TEXT,
+        source VARCHAR(20) DEFAULT 'popup' CHECK (source IN ('popup', 'contact', 'franchise')),
+        status VARCHAR(20) DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'resolved', 'closed')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Upgrade legacy inquiries source constraint to include 'franchise' if needed
+    await client.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.table_constraints
+          WHERE table_name = 'inquiries' AND constraint_type = 'CHECK' AND constraint_name = 'inquiries_source_check'
+        ) THEN
+          ALTER TABLE inquiries DROP CONSTRAINT IF EXISTS inquiries_source_check;
+        END IF;
+      END $$;
+    `);
+    await client.query(`
+      ALTER TABLE inquiries
+      ADD CONSTRAINT inquiries_source_check CHECK (source IN ('popup', 'contact', 'franchise'))
+      NOT VALID;
+    `);
+    await client.query(`ALTER TABLE inquiries VALIDATE CONSTRAINT inquiries_source_check`);
+
+    // Indexes for inquiries
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_inquiries_created_at ON inquiries(created_at)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_inquiries_source ON inquiries(source)`);
+
+    // Trigger to update updated_at on inquiries
+    await client.query(`
+      CREATE OR REPLACE FUNCTION update_inquiries_updated_at()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE 'plpgsql';
+    `);
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger WHERE tgname = 'update_inquiries_updated_at'
+        ) THEN
+          CREATE TRIGGER update_inquiries_updated_at
+            BEFORE UPDATE ON inquiries
+            FOR EACH ROW
+            EXECUTE FUNCTION update_inquiries_updated_at();
+        END IF;
+      END $$;
+    `);
+
     // Create indexes for payment_transactions
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_payment_transactions_txn_id ON payment_transactions(transaction_id)
@@ -214,20 +280,46 @@ const initializeTables = async () => {
       console.log('✅ Default products inserted');
     }
 
-    // Seed default admin if none exists
-    const adminCountRes = await client.query('SELECT COUNT(*)::int AS count FROM admins');
-    const adminCount = adminCountRes.rows[0]?.count || 0;
-    if (adminCount === 0) {
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@chaiwala.com';
-      const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'; // Note: plain for now
-      await client.query(
-        `INSERT INTO admins (name, email, password, role, is_active)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (email) DO NOTHING`,
-        ['Admin', adminEmail, adminPassword, 'admin', true]
-      );
-      console.log('✅ Default admin ensured');
-    }
+    // Ensure admins table exists (used by auth flow)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'admin',
+        is_active BOOLEAN DEFAULT true,
+        login_attempts INTEGER DEFAULT 0,
+        locked_until TIMESTAMP NULL,
+        last_login TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Backfill/ensure columns exist for admins table (idempotent guards)
+    await client.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'admin'`);
+    await client.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`);
+    await client.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS login_attempts INTEGER DEFAULT 0`);
+    await client.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP NULL`);
+    await client.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS last_login TIMESTAMP NULL`);
+    await client.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+
+    // Ensure configured admin exists (idempotent upsert)
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@chaiwala.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'; // Note: plain for now
+
+    await client.query(
+      `INSERT INTO admins (name, email, password, role, is_active)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (email) DO UPDATE
+         SET password = EXCLUDED.password,
+             role = COALESCE(admins.role, EXCLUDED.role),
+             is_active = true`,
+      ['Admin', adminEmail, adminPassword, 'admin', true]
+    );
+
+    // Log a helpful message
+    console.log(`✅ Admin ensured for email: ${adminEmail}`);
 
     console.log('✅ Database tables initialized');
   } catch (error) {
